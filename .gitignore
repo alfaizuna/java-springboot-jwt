@@ -31,3 +31,17 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Environment & Local Configs ###
+src/main/resources/application-dev.yaml
+src/main/resources/application-local.yaml
+.env
+*.env
+
+### macOS ###
+.DS_Store
+
+### Logs ###
+*.log
+logs/
+

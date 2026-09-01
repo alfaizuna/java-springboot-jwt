@@ -1,5 +1,7 @@
 package com.alfaizunawebid.baseapp.controller;
 
+import java.util.Map;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -8,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.alfaizunawebid.baseapp.dto.AuthenticationRequest;
 import com.alfaizunawebid.baseapp.dto.AuthenticationResponse;
+import com.alfaizunawebid.baseapp.dto.RefreshTokenRequest;
 import com.alfaizunawebid.baseapp.dto.RegisterRequest;
 import com.alfaizunawebid.baseapp.service.AuthenticationService;
 
@@ -42,5 +45,30 @@ public class AuthenticationController {
             @RequestBody AuthenticationRequest request
     ) {
         return ResponseEntity.ok(authenticationService.authenticate(request));
+    }
+
+    /**
+     * Refresh access token menggunakan refresh token
+     * POST /api/v1/auth/refresh-token
+     * Body: { "refreshToken": "uuid-token" }
+     */
+    @PostMapping("/refresh-token")
+    public ResponseEntity<AuthenticationResponse> refreshToken(
+            @RequestBody RefreshTokenRequest request
+    ) {
+        return ResponseEntity.ok(authenticationService.refreshToken(request));
+    }
+
+    /**
+     * Logout user dengan me-revoke refresh token
+     * POST /api/v1/auth/logout
+     * Body: { "refreshToken": "uuid-token" }
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout(
+            @RequestBody RefreshTokenRequest request
+    ) {
+        authenticationService.logout(request);
+        return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
     }
 }

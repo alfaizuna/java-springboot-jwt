@@ -7,7 +7,9 @@ import org.springframework.stereotype.Service;
 
 import com.alfaizunawebid.baseapp.dto.AuthenticationRequest;
 import com.alfaizunawebid.baseapp.dto.AuthenticationResponse;
+import com.alfaizunawebid.baseapp.dto.RefreshTokenRequest;
 import com.alfaizunawebid.baseapp.dto.RegisterRequest;
+import com.alfaizunawebid.baseapp.model.RefreshToken;
 import com.alfaizunawebid.baseapp.model.Role;
 import com.alfaizunawebid.baseapp.model.User;
 import com.alfaizunawebid.baseapp.repository.UserRepository;
@@ -22,6 +24,7 @@ public class AuthenticationService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final RefreshTokenService refreshTokenService;
 
     public AuthenticationResponse register(RegisterRequest request) {
         // Cek apakah email sudah terdaftar
@@ -39,9 +42,11 @@ public class AuthenticationService {
         userRepository.save(user);
 
         var jwtToken = jwtService.generateToken(user);
+        var refreshToken = refreshTokenService.createRefreshToken(user);
 
         return AuthenticationResponse.builder()
                 .token(jwtToken)
+                .refreshToken(refreshToken.getToken())
                 .build();
     }
 
@@ -58,9 +63,29 @@ public class AuthenticationService {
                 .orElseThrow();
 
         var jwtToken = jwtService.generateToken(user);
+        var refreshToken = refreshTokenService.createRefreshToken(user);
 
         return AuthenticationResponse.builder()
                 .token(jwtToken)
+                .refreshToken(refreshToken.getToken())
                 .build();
+    }
+
+    public AuthenticationResponse refreshToken(RefreshTokenRequest request) {
+        return refreshTokenService.findByToken(request.getRefreshToken())
+                .map(refreshTokenService::verifyExpiration)
+                .map(RefreshToken::getUser)
+                .map(user -> {
+                    var accessToken = jwtService.generateToken(user);
+                    return AuthenticationResponse.builder()
+                            .token(accessToken)
+                            .refreshToken(request.getRefreshToken())
+                            .build();
+                })
+                .orElseThrow(() -> new IllegalArgumentException("Invalid refresh token"));
+    }
+
+    public void logout(RefreshTokenRequest request) {
+        refreshTokenService.revokeToken(request.getRefreshToken());
     }
 }

@@ -1,15 +1,8 @@
 spring:
   application:
     name: baseapp
-  datasource:
-    url: jdbc:postgresql://localhost:5432/baseapp_db
-    username: postgres
-    password: 
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
+  profiles:
+    active: dev
 
 # Custom Application Config
 application:
@@ -17,3 +10,5 @@ application:
     jwt:
       secret-key: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
       expiration: ${JWT_EXPIRATION:86400000} # 24 jam dalam milidetik
+      refresh-token:
+        expiration: ${REFRESH_TOKEN_EXPIRATION:604800000} # 7 hari dalam milidetik
