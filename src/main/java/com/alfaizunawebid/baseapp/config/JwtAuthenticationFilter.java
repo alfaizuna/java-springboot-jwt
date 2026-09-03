@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.alfaizunawebid.baseapp.service.JwtService;
+import com.alfaizunawebid.baseapp.service.TokenBlacklistService;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -24,6 +25,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final TokenBlacklistService tokenBlacklistService;
     
     @Override
     protected void doFilterInternal(
@@ -39,6 +41,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
         jwt = authHeader.substring(7);
+        
+        // Jika token sudah di-blacklist di Redis, jangan autentikasi
+        if (tokenBlacklistService.isTokenBlacklisted(jwt)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+        
         userEmail = jwtService.extractUsername(jwt);
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);

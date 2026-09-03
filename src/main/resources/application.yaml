@@ -3,6 +3,10 @@ spring:
     name: baseapp
   profiles:
     active: dev
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 
 # Custom Application Config
 application:

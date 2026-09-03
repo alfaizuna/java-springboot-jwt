@@ -5,6 +5,7 @@ import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -60,15 +61,19 @@ public class AuthenticationController {
     }
 
     /**
-     * Logout user dengan me-revoke refresh token
+     * Logout user:
+     * - Blacklist Access Token ke Redis (jika header Authorization diberikan)
+     * - Revoke Refresh Token di DB (jika request body refreshToken diberikan)
      * POST /api/v1/auth/logout
+     * Header: Authorization: Bearer <accessToken>
      * Body: { "refreshToken": "uuid-token" }
      */
     @PostMapping("/logout")
     public ResponseEntity<Map<String, String>> logout(
-            @RequestBody RefreshTokenRequest request
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody(required = false) RefreshTokenRequest request
     ) {
-        authenticationService.logout(request);
+        authenticationService.logout(authHeader, request);
         return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
     }
 }

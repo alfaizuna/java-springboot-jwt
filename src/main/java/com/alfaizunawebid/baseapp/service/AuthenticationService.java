@@ -25,6 +25,7 @@ public class AuthenticationService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final RefreshTokenService refreshTokenService;
+    private final TokenBlacklistService tokenBlacklistService;
 
     public AuthenticationResponse register(RegisterRequest request) {
         // Cek apakah email sudah terdaftar
@@ -85,7 +86,19 @@ public class AuthenticationService {
                 .orElseThrow(() -> new IllegalArgumentException("Invalid refresh token"));
     }
 
-    public void logout(RefreshTokenRequest request) {
-        refreshTokenService.revokeToken(request.getRefreshToken());
+    public void logout(String authHeader, RefreshTokenRequest request) {
+        // 1. Blacklist Access Token di Redis jika ada di header Authorization
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String accessToken = authHeader.substring(7);
+            long remainingTime = jwtService.getRemainingExpiration(accessToken);
+            if (remainingTime > 0) {
+                tokenBlacklistService.blacklistToken(accessToken, remainingTime);
+            }
+        }
+
+        // 2. Revoke Refresh Token di database PostgreSQL jika ada
+        if (request != null && request.getRefreshToken() != null && !request.getRefreshToken().isBlank()) {
+            refreshTokenService.revokeToken(request.getRefreshToken());
+        }
     }
 }
