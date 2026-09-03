@@ -1,8 +1,10 @@
 package com.alfaizunawebid.baseapp.controller;
 
+import java.util.Base64;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -14,6 +16,7 @@ import com.alfaizunawebid.baseapp.dto.AuthenticationResponse;
 import com.alfaizunawebid.baseapp.dto.RefreshTokenRequest;
 import com.alfaizunawebid.baseapp.dto.RegisterRequest;
 import com.alfaizunawebid.baseapp.service.AuthenticationService;
+import com.alfaizunawebid.baseapp.service.JwtService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 public class AuthenticationController {
 
     private final AuthenticationService authenticationService;
+    private final JwtService jwtService;
 
     /**
      * Register user baru
@@ -75,5 +79,18 @@ public class AuthenticationController {
     ) {
         authenticationService.logout(authHeader, request);
         return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
+    }
+
+    /**
+     * Mengambil RSA Public Key (PEM format) untuk resource server / verifikasi client
+     * GET /api/v1/auth/public-key
+     */
+    @GetMapping("/public-key")
+    public ResponseEntity<Map<String, String>> getPublicKey() {
+        String base64Key = Base64.getEncoder().encodeToString(jwtService.getPublicKey().getEncoded());
+        String pem = "-----BEGIN PUBLIC KEY-----\n" +
+                base64Key.replaceAll("(.{64})", "$1\n") +
+                "\n-----END PUBLIC KEY-----";
+        return ResponseEntity.ok(Map.of("publicKey", pem));
     }
 }

@@ -38,10 +38,17 @@ src/main/resources/application-local.yaml
 .env
 *.env
 
+### Certificates & Keys ###
+src/main/resources/certs/private_key.pem
+*.pem
+*.key
+*.p12
+
 ### macOS ###
 .DS_Store
 
 ### Logs ###
 *.log
 logs/
+
 
