@@ -18,12 +18,18 @@ import com.alfaizunawebid.baseapp.dto.RegisterRequest;
 import com.alfaizunawebid.baseapp.service.AuthenticationService;
 import com.alfaizunawebid.baseapp.service.JwtService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
+@Tag(name = "Authentication", description = "Endpoints untuk registrasi, login, refresh token, logout, dan public key")
 public class AuthenticationController {
 
     private final AuthenticationService authenticationService;
@@ -32,8 +38,13 @@ public class AuthenticationController {
     /**
      * Register user baru
      * POST /api/v1/auth/register
-     * Body: { "name": "John", "email": "john@example.com", "password": "secret123" }
      */
+    @Operation(summary = "Register user baru", description = "Mendaftarkan user baru dengan role USER secara default.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "User berhasil didaftarkan"),
+            @ApiResponse(responseCode = "400", description = "Validasi request body gagal atau email sudah terdaftar")
+    })
+    @SecurityRequirements // Public endpoint
     @PostMapping("/register")
     public ResponseEntity<AuthenticationResponse> register(
             @Valid @RequestBody RegisterRequest request
@@ -44,8 +55,14 @@ public class AuthenticationController {
     /**
      * Login user yang sudah terdaftar
      * POST /api/v1/auth/login
-     * Body: { "email": "john@example.com", "password": "secret123" }
      */
+    @Operation(summary = "Login user", description = "Autentikasi kredensial user dan mengembalikan JWT Access Token (RS256) serta Refresh Token.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Login berhasil"),
+            @ApiResponse(responseCode = "400", description = "Format request tidak valid"),
+            @ApiResponse(responseCode = "401", description = "Email atau password salah")
+    })
+    @SecurityRequirements // Public endpoint
     @PostMapping("/login")
     public ResponseEntity<AuthenticationResponse> login(
             @Valid @RequestBody AuthenticationRequest request
@@ -56,8 +73,13 @@ public class AuthenticationController {
     /**
      * Refresh access token menggunakan refresh token
      * POST /api/v1/auth/refresh-token
-     * Body: { "refreshToken": "uuid-token" }
      */
+    @Operation(summary = "Refresh access token", description = "Membuat Access Token baru menggunakan Refresh Token yang valid dan belum expired/revoked.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Access token berhasil diperbarui"),
+            @ApiResponse(responseCode = "400", description = "Request tidak valid atau refresh token expired/revoked")
+    })
+    @SecurityRequirements // Public endpoint
     @PostMapping("/refresh-token")
     public ResponseEntity<AuthenticationResponse> refreshToken(
             @Valid @RequestBody RefreshTokenRequest request
@@ -67,12 +89,14 @@ public class AuthenticationController {
 
     /**
      * Logout user:
-     * - Blacklist Access Token ke Redis (jika header Authorization diberikan)
-     * - Revoke Refresh Token di DB (jika request body refreshToken diberikan)
+     * - Blacklist Access Token ke Redis
+     * - Revoke Refresh Token di DB
      * POST /api/v1/auth/logout
-     * Header: Authorization: Bearer <accessToken>
-     * Body: { "refreshToken": "uuid-token" }
      */
+    @Operation(summary = "Logout user", description = "Blacklist Access Token ke Redis (dengan TTL sisa masa berlaku token) dan revoke Refresh Token di database.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Berhasil logout")
+    })
     @PostMapping("/logout")
     public ResponseEntity<Map<String, String>> logout(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
@@ -86,6 +110,11 @@ public class AuthenticationController {
      * Mengambil RSA Public Key (PEM format) untuk resource server / verifikasi client
      * GET /api/v1/auth/public-key
      */
+    @Operation(summary = "Get RSA Public Key", description = "Mengambil Public Key RSA dalam format PEM X.509 untuk verifikasi tanda tangan JWT oleh client atau resource server terdistribusi.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Public Key berhasil diambil")
+    })
+    @SecurityRequirements // Public endpoint
     @GetMapping("/public-key")
     public ResponseEntity<Map<String, String>> getPublicKey() {
         String base64Key = Base64.getEncoder().encodeToString(jwtService.getPublicKey().getEncoded());
