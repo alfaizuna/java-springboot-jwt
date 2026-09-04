@@ -21,6 +21,7 @@ import com.alfaizunawebid.baseapp.dto.UpdateUserRequest;
 import com.alfaizunawebid.baseapp.dto.UserResponse;
 import com.alfaizunawebid.baseapp.service.UserService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -45,7 +46,7 @@ public class UserController {
      */
     @PutMapping("/me")
     public ResponseEntity<UserResponse> updateCurrentUser(
-            @RequestBody UpdateUserRequest request
+            @Valid @RequestBody UpdateUserRequest request
     ) {
         return ResponseEntity.ok(userService.updateCurrentUser(request));
     }
@@ -56,7 +57,7 @@ public class UserController {
      */
     @PatchMapping("/me/password")
     public ResponseEntity<Map<String, String>> changePassword(
-            @RequestBody ChangePasswordRequest request
+            @Valid @RequestBody ChangePasswordRequest request
     ) {
         userService.changePassword(request);
         return ResponseEntity.ok(Map.of("message", "Password changed successfully"));
