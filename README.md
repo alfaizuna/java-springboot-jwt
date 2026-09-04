@@ -1,361 +1,273 @@
-# Baseapp — Spring Boot REST API with JWT Authentication
+# Baseapp — Production-Ready Spring Boot REST API with JWT RS256 & Redis
 
-A production-ready **Spring Boot base application** with full **JWT Authentication & Authorization** using Spring Security 7, JPA, and PostgreSQL. Designed to be used as a starting template for building secure REST APIs.
+[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Spring Security](https://img.shields.io/badge/Spring%20Security-7.x-green.svg)](https://spring.io/projects/spring-security)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-7-red.svg)](https://redis.io/)
+[![Flyway](https://img.shields.io/badge/Flyway-Migration-blueviolet.svg)](https://flywaydb.org/)
+[![Swagger](https://img.shields.io/badge/OpenAPI-3.0%20%2F%20Swagger-85EA2D.svg)](https://swagger.io/)
+[![Docker](https://img.shields.io/badge/Docker-Multi--stage-2496ED.svg)](https://www.docker.com/)
+
+A enterprise-grade, production-ready **Spring Boot REST API starter kit** implementing **Asymmetric JWT (RS256)** authentication, **Redis-backed Token Revocation (Blacklist)**, **Refresh Token Rotation**, **Flyway Database Migrations**, **Input Validation**, **Role-Based Access Control (RBAC)**, **Swagger / OpenAPI 3**, **Comprehensive Automated Tests**, and **Docker Multi-Stage Deployment**.
+
+---
+
+## 🌟 Fitur Utama (Key Features)
+
+- 🔑 **Asymmetric JWT (RS256 RSA 2048-bit)**:
+  - Token ditandatangani menggunakan **RSA Private Key** (hanya disimpan di auth server).
+  - Verifikasi token menggunakan **RSA Public Key** (dapat di-expose via `/api/v1/auth/public-key` untuk resource server / microservices).
+- ⚡ **Redis Token Blacklist (O(1))**:
+  - Logout seketika mem-blacklist Access Token ke Redis dengan TTL dinamis sesuai sisa umur token.
+  - Token yang di-logout langsung ditolak seketika (HTTP 403) meskipun belum expired secara waktu.
+- 🔄 **Refresh Token Rotation & Revocation**:
+  - Refresh token berumur panjang disimpan di PostgreSQL.
+  - Setiap rotasi token menghasilkan refresh token baru dan me-revoke token lama untuk mencegah replay attacks.
+- 🗄️ **Database Migration dengan Flyway**:
+  - Migrasi DDL skema terstruktur (`V1__init_users_table.sql`, `V2__create_refresh_tokens_table.sql`).
+  - Hibernate disetel ke `ddl-auto: validate` untuk menjamin keamanan skema di lingkungan produksi.
+- 🛡️ **Role-Based Access Control (RBAC)**:
+  - Dukungan otorisasi bertingkat (`ROLE_USER` dan `ROLE_ADMIN`) dengan Spring Security method security (`@PreAuthorize`).
+- 👤 **User Management Endpoints**:
+  - Melihat & update profil (`/api/v1/users/me`), ganti password dengan validasi password lama, serta paginasi dan penghapusan user untuk Admin.
+- 🧩 **Input Validation & Global Exception Handler**:
+  - Validasi ketat request body DTO menggunakan `jakarta.validation` (`@NotBlank`, `@Email`, `@Size`).
+  - Handler terpusat (`@RestControllerAdvice`) dengan format error response standar JSON.
+- 📚 **Dokumentasi Interaktif (OpenAPI 3 & Swagger UI)**:
+  - Antarmuka visual Swagger UI di `/swagger-ui.html` dengan integrasi otorisasi Bearer JWT.
+- 🧪 **Rangkaian Test Otomatis (26 Test Cases)**:
+  - Unit testing terisolasi (JUnit 5 & Mockito) untuk `JwtService`, `TokenBlacklistService`, dan `RefreshTokenService`.
+  - Integration testing end-to-end (`@SpringBootTest` & `MockMvc`) menguji alur auth lengkap.
+- 🐳 **Containerisasi & Orkestrasi Siap Produksi**:
+  - Multi-stage build `Dockerfile` berbasis Eclipse Temurin 21 Alpine dengan user non-root (`appuser`).
+  - `docker-compose.yml` siap pakai untuk menjalankan PostgreSQL, Redis, dan Baseapp secara terpadu.
 
 ---
 
 ## 🧰 Tech Stack
 
-| Teknologi | Versi | Keterangan |
-|---|---|---|
-| **Java** | 21 | Language utama |
-| **Spring Boot** | 4.1.1 | Framework utama |
-| **Spring Security** | 7.x | Autentikasi & Otorisasi |
-| **Spring Data JPA** | — | ORM Layer |
-| **Hibernate** | 7.4.5 | JPA Implementation |
-| **PostgreSQL** | 16 | Database |
-| **JJWT** | 0.12.5 | Library JWT |
-| **Lombok** | — | Boilerplate reduction |
-| **Maven** | — | Build tool |
+| Komponen | Teknologi / Library | Versi | Keterangan |
+|---|---|---|---|
+| **Language** | Java | 21 (LTS) | Modern Java Features |
+| **Framework** | Spring Boot | 4.1.1 | Core Framework |
+| **Security** | Spring Security | 7.x | Filter-based Authentication & RBAC |
+| **JWT Library** | JJWT (io.jsonwebtoken) | 0.12.5 | RS256 RSA Signature & Verification |
+| **Database** | PostgreSQL | 16 | Primary Relational Database |
+| **Migration** | Flyway | 10.x | Version-controlled Database Migration |
+| **Caching / KV** | Redis | 7.x | Token Blacklist Store (TTL Expiry) |
+| **ORM** | Spring Data JPA / Hibernate | 7.4.5 | Persistence Layer (`validate` mode) |
+| **Documentation**| Springdoc OpenAPI Starter UI | 2.8.5 | Swagger UI & OpenAPI 3 Specification |
+| **Validation** | Jakarta Bean Validation | — | DTO Input Validation |
+| **Testing** | JUnit 5, Mockito, MockMvc | — | Automated Unit & Integration Tests |
+| **Container** | Docker & Docker Compose | — | Multi-stage build & non-root user |
+
+---
+
+## 🏗️ Arsitektur Sistem
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              Client / SPA                               │
+└────────────────────────┬───────────────────────▲────────────────────────┘
+                         │ HTTPS                 │
+                         ▼                       │ Response
+┌────────────────────────────────────────────────┴────────────────────────┐
+│                        Spring Boot REST API                             │
+│                                                                         │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │                     JwtAuthenticationFilter                       │  │
+│  │   1. Verifikasi Signature RS256 via RSA Public Key                │  │
+│  │   2. Pengecekan Token Blacklist ke Redis (O(1))                   │  │
+│  └───────────────────────────────┬───────────────────────────────────┘  │
+│                                  │                                      │
+│  ┌───────────────────────────────▼───────────────────────────────────┐  │
+│  │                 Controller Layer (REST & OpenAPI)                 │  │
+│  │  - AuthenticationController  - UserController  - DemoController   │  │
+│  └───────────────────────────────┬───────────────────────────────────┘  │
+│                                  │                                      │
+│  ┌───────────────────────────────▼───────────────────────────────────┐  │
+│  │                          Service Layer                            │  │
+│  │  - JwtService (Sign RS256 w/ Private Key)                         │  │
+│  │  - TokenBlacklistService (Redis TTL Storage)                      │  │
+│  │  - RefreshTokenService (UUID Rotation & Revocation)               │  │
+│  │  - UserService & AuthenticationService                            │  │
+│  └───────────────┬───────────────────────────────┬───────────────────┘  │
+└──────────────────┼───────────────────────────────┼──────────────────────┘
+                   │                               │
+                   ▼                               ▼
+    ┌─────────────────────────────┐  ┌──────────────────────────────┐
+    │       PostgreSQL 16         │  │           Redis 7            │
+    │  - Tabel `_user`            │  │  - Key: `blacklist:token:*` │
+    │  - Tabel `refresh_tokens`   │  │    (TTL otomatis habis saat  │
+    │  - Tabel `flyway_schema_...`│  │     token expired)           │
+    └─────────────────────────────┘  └──────────────────────────────┘
+```
 
 ---
 
 ## 📁 Struktur Project
 
 ```
-src/main/java/com/alfaizunawebid/baseapp/
-│
-├── BaseappApplication.java          # Entry point aplikasi
-│
-├── config/
-│   ├── ApplicationConfig.java       # Bean: PasswordEncoder, AuthManager, UserDetailsService
-│   ├── JwtAuthenticationFilter.java # Filter: validasi JWT pada setiap HTTP request
-│   └── SecurityConfiguration.java  # Konfigurasi SecurityFilterChain & whitelist route
-│
-├── controller/
-│   ├── AuthenticationController.java # POST /register & POST /login
-│   └── DemoController.java           # GET /hello & GET /admin (contoh protected endpoint)
-│
-├── dto/
-│   ├── AuthenticationRequest.java    # Body request login { email, password }
-│   ├── AuthenticationResponse.java   # Response { token }
-│   └── RegisterRequest.java          # Body request register { name, email, password }
-│
-├── model/
-│   ├── Role.java                     # Enum: USER, ADMIN
-│   └── User.java                     # JPA Entity + implements UserDetails
-│
-├── repository/
-│   └── UserRepository.java           # JPA Repository: findByEmail, existsByEmail
-│
-└── service/
-    ├── AuthenticationService.java    # Logic register & login
-    └── JwtService.java               # Generate, validasi & ekstrak data dari JWT
+baseapp/
+├── src/
+│   ├── main/
+│   │   ├── java/com/alfaizunawebid/baseapp/
+│   │   │   ├── config/              # Security, JWT RSA, Redis, & OpenAPI Config
+│   │   │   ├── controller/          # REST Endpoints (Auth, User, Demo)
+│   │   │   ├── dto/                 # Request & Response DTOs dengan validasi
+│   │   │   ├── exception/           # Global Exception Handler (@RestControllerAdvice)
+│   │   │   ├── model/               # JPA Entities (_user, refresh_tokens, Role)
+│   │   │   ├── repository/          # Spring Data JPA Repositories
+│   │   │   └── service/             # Business Logic (Auth, User, JWT, Redis, Refresh)
+│   │   └── resources/
+│   │       ├── application.yaml     # Konfigurasi dasar & default profile
+│   │       ├── application-dev.yaml # Konfigurasi lokal development (Postgres & Redis)
+│   │       ├── application-prod.yaml# Konfigurasi production-ready (Environment variables)
+│   │       ├── certs/               # RSA 2048-bit PEM Keys (private & public)
+│   │       └── db/migration/        # SQL Migration Flyway (V1, V2)
+│   └── test/
+│       └── java/com/alfaizunawebid/baseapp/
+│           ├── controller/          # Integration Test (AuthenticationIntegrationTest)
+│           └── service/             # Unit Tests (JwtService, TokenBlacklist, RefreshToken)
+├── .dockerignore
+├── .env.example                     # Template konfigurasi environment variables
+├── docker-compose.yml               # Multi-container orchestration (App, DB, Redis)
+├── Dockerfile                       # Multi-stage Docker build (Alpine & non-root)
+├── MANUAL_TESTING.md                # Panduan lengkap pengujian manual via cURL
+├── postman_collection.json          # Postman Collection v2.1.0 dengan auto-token save
+└── pom.xml                          # Maven build dependencies
 ```
 
 ---
 
-## ⚙️ Konfigurasi
+## 📡 Ringkasan API Endpoints
 
-### `src/main/resources/application.yaml`
+### 1. Authentication (`/api/v1/auth`) — Public
+| Method | Endpoint | Deskripsi | Status |
+|---|---|---|:---:|
+| `GET` | `/api/v1/auth/public-key` | Mengambil RSA Public Key (PEM X.509) untuk client | `200 OK` |
+| `POST` | `/api/v1/auth/register` | Mendaftarkan user baru & mengembalikan token pair | `200 OK` |
+| `POST` | `/api/v1/auth/login` | Login user & mengembalikan Access + Refresh Token | `200 OK` |
+| `POST` | `/api/v1/auth/refresh-token` | Rotasi Access Token menggunakan Refresh Token | `200 OK` |
+| `POST` | `/api/v1/auth/logout` | Blacklist Access Token ke Redis & Revoke Refresh Token | `200 OK` |
 
-```yaml
-spring:
-  application:
-    name: baseapp
-  datasource:
-    url: jdbc:postgresql://localhost:5432/baseapp_db
-    username: postgres
-    password: ""
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: update   # Ganti ke 'validate' di production
-    show-sql: true       # Set false di production
+### 2. User Management (`/api/v1/users`) — Protected (Bearer Token)
+| Method | Endpoint | Role | Deskripsi |
+|---|---|:---:|---|
+| `GET` | `/api/v1/users/me` | `USER`, `ADMIN` | Mengambil profil user yang sedang login |
+| `PUT` | `/api/v1/users/me` | `USER`, `ADMIN` | Memperbarui nama profil pengguna |
+| `PATCH` | `/api/v1/users/me/password` | `USER`, `ADMIN` | Mengubah password akun dengan validasi old password |
+| `GET` | `/api/v1/users` | `ADMIN` | Mengambil daftar seluruh user terpaginasi (`?page=0&size=10`) |
+| `DELETE` | `/api/v1/users/{id}` | `ADMIN` | Menghapus user berdasarkan ID |
 
-# Konfigurasi JWT custom
-application:
-  security:
-    jwt:
-      secret-key: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
-      expiration: ${JWT_EXPIRATION:86400000}  # 24 jam (dalam milidetik)
-```
+### 3. Demo / Role Check (`/api/v1/demo`) — Protected
+| Method | Endpoint | Role | Deskripsi |
+|---|---|:---:|---|
+| `GET` | `/api/v1/demo/hello` | `USER`, `ADMIN` | Akses authenticated user umum |
+| `GET` | `/api/v1/demo/admin` | `ADMIN` | Akses khusus administrator (Role check) |
 
-### Environment Variables (Production)
-
-| Variable | Keterangan |
-|---|---|
-| `JWT_SECRET` | Secret key untuk signing JWT (min. 32 karakter) |
-| `JWT_EXPIRATION` | Masa berlaku token dalam milidetik |
-| `SPRING_PROFILES_ACTIVE` | Set ke `prod` di server production |
-
----
-
-## 🚀 Cara Menjalankan
-
-### Prerequisites
-
-- Java 21+
-- PostgreSQL 16+
-- Maven (atau gunakan `./mvnw`)
-
-### 1. Setup Database
-
-```bash
-# Buat database
-createdb baseapp_db
-
-# Atau via psql
-psql postgres -c "CREATE DATABASE baseapp_db;"
-```
-
-### 2. Jalankan Aplikasi
-
-```bash
-# Clone & masuk ke direktori project
-git clone <repo-url>
-cd baseapp
-
-# Jalankan dengan Maven Wrapper
-./mvnw spring-boot:run
-```
-
-Aplikasi akan berjalan di: **http://localhost:8080**
-
-> Hibernate akan otomatis membuat tabel `_user` di database saat pertama kali dijalankan (karena `ddl-auto: update`).
-
----
-
-## 📖 Apa itu JWT?
-
-**JWT (JSON Web Token)** adalah standar terbuka ([RFC 7519](https://datatracker.ietf.org/doc/html/rfc7519)) yang mendefinisikan cara yang ringkas dan mandiri (*self-contained*) untuk mentransmisikan informasi secara aman antar pihak dalam format JSON.
-
-Token JWT **ditandatangani secara digital** (bukan dienkripsi), sehingga:
-- Siapapun bisa **membaca** isi token (jangan simpan data sensitif di dalamnya)
-- Tidak ada yang bisa **memalsukan** token tanpa mengetahui secret key
-
----
-
-## 🧬 Anatomi / Struktur Token JWT
-
-Sebuah token JWT terdiri dari **3 bagian** yang dipisahkan oleh titik (`.`):
-
-```
-eyJhbGciOiJIUzUxMiJ9  .  eyJzdWIiOiJqb2huQGV4YW1wbGUuY29tIiwiaWF0IjoxNzg3ODIxNTAwLCJleHAiOjE3ODc5MDc5MDB9  .  _J2Su3q6mhcdkGfxtr...
-      HEADER                                        PAYLOAD (CLAIMS)                                                    SIGNATURE
-```
-
-### 1. Header
-Berisi metadata tentang jenis token dan algoritma kriptografi yang digunakan.
-
-```json
-{
-  "alg": "HS512",
-  "typ": "JWT"
-}
-```
-- **`alg`**: Algoritma signing — project ini menggunakan `HS512` (HMAC-SHA512)
-- **`typ`**: Selalu bernilai `JWT`
-
-### 2. Payload (Claims)
-Berisi data (*claims*) yang ingin dikirimkan. Ada 3 jenis claim:
-
-| Jenis | Contoh | Keterangan |
+### 4. API Documentation
+| Method | Endpoint | Deskripsi |
 |---|---|---|
-| **Registered Claims** | `sub`, `iat`, `exp` | Claim standar yang sudah didefinisikan RFC 7519 |
-| **Public Claims** | — | Claim yang didaftarkan secara publik (IANA) |
-| **Private Claims** | `role`, `name` | Claim kustom yang disepakati kedua pihak |
-
-Payload di project ini:
-```json
-{
-  "sub": "john@example.com",   // subject: identifier user (email)
-  "iat": 1787821500,           // issued at: waktu token dibuat (Unix timestamp)
-  "exp": 1787907900            // expiration: waktu token kedaluwarsa
-}
-```
-
-> ⚠️ **Penting**: Payload hanya di-encode Base64Url, **bukan dienkripsi**. Jangan menyimpan password atau data sensitif di dalam payload.
-
-### 3. Signature (Tanda Tangan Digital)
-Dibuat dengan menggabungkan header + payload yang sudah di-encode, lalu ditandatangani menggunakan secret key:
-
-```
-HMACSHA512(
-  Base64Url(header) + "." + Base64Url(payload),
-  secretKey
-)
-```
-
-Signature inilah yang menjamin **integritas** token. Jika ada satu karakter pun yang diubah di header atau payload, signature akan tidak cocok dan token akan ditolak.
+| `GET` | `/swagger-ui.html` | Swagger UI Interactive Portal (Redirect ke `/swagger-ui/index.html`) |
+| `GET` | `/v3/api-docs` | OpenAPI 3.0 JSON Specification |
 
 ---
 
-## 🔑 Algoritma Signing: HMAC-SHA512
+## ⚙️ Variabel Lingkungan (Environment Variables)
 
-Project ini menggunakan **HMAC-SHA512** (`HS512`) — algoritma *symmetric* (satu kunci):
+Salin template berkas [.env.example](file:///.env.example) menjadi `.env`:
 
-```
-[Server Secret Key] ──▶ dipakai untuk SIGN token saat login
-[Server Secret Key] ──▶ dipakai untuk VERIFY token saat ada request
-```
+```env
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=baseapp_db
+DB_USERNAME=postgres
+DB_PASSWORD=your_password_here
 
-**Keuntungan**: Sederhana, performa tinggi, cocok untuk aplikasi monolitik.
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
 
-**Kekurangan**: Secret key harus dijaga ketat di server. Jika bocor, siapapun bisa memalsukan token.
+# App Profile & Port
+PORT=8080
+SPRING_PROFILES_ACTIVE=prod
 
-> Alternatif: **RSA (RS256)** menggunakan *private key* untuk sign dan *public key* untuk verify — cocok untuk arsitektur microservices di mana beberapa service perlu memverifikasi token tanpa bisa membuatnya.
-
----
-
-## ⚖️ JWT vs Session: Stateless vs Stateful
-
-| Aspek | JWT (Stateless) | Session (Stateful) |
-|---|---|---|
-| **Penyimpanan** | Di client (header/localStorage) | Di server (memory/database) |
-| **Skalabilitas** | ✅ Mudah di-scale (tanpa shared state) | ❌ Butuh shared session store (Redis, dll.) |
-| **Logout** | ❌ Sulit — token valid sampai expired | ✅ Mudah — hapus session di server |
-| **Revokasi** | ❌ Perlu blacklist token | ✅ Langsung hapus session |
-| **Overhead per Request** | Lebih besar (token dikirim di header) | Lebih kecil (hanya session ID) |
-| **Cocok untuk** | REST API, Microservices, Mobile App | Web app tradisional dengan server-side rendering |
-
-Project ini menggunakan JWT dengan session `STATELESS` di Spring Security, artinya **server tidak menyimpan state apapun** — setiap request harus membawa token yang valid.
-
----
-
-## 🔐 Alur Autentikasi JWT
-
-```
-Client                          Server
-  │                               │
-  │── POST /api/v1/auth/register ─▶│ Simpan user (password di-hash BCrypt)
-  │◀─────── { token } ────────────│ Return JWT Token
-  │                               │
-  │── POST /api/v1/auth/login ───▶│ Verifikasi email & password
-  │◀─────── { token } ────────────│ Return JWT Token
-  │                               │
-  │── GET /api/v1/demo/hello ────▶│ JwtAuthenticationFilter validasi token
-  │   Authorization: Bearer <token>│ Load user dari DB, set SecurityContext
-  │◀─────── { data user } ────────│ Return response jika valid
+# JWT (RSA 2048-bit)
+RSA_PRIVATE_KEY_LOCATION=classpath:certs/private_key.pem
+RSA_PUBLIC_KEY_LOCATION=classpath:certs/public_key.pem
+JWT_EXPIRATION=86400000          # 24 jam (ms)
+REFRESH_TOKEN_EXPIRATION=604800000 # 7 hari (ms)
 ```
 
 ---
 
-## 📡 API Endpoints
+## 🚀 Cara Menjalankan Aplikasi
 
-### Auth (Public — tidak perlu token)
+### Opsi 1: Menggunakan Docker Compose (Direkomendasikan)
+Metode tercepat yang secara otomatis menyiapkan PostgreSQL, Redis, dan menjalankan aplikasi:
+```bash
+# 1. Pastikan Docker Desktop aktif
+cp .env.example .env
 
-#### Register
-```http
-POST /api/v1/auth/register
-Content-Type: application/json
+# 2. Build dan jalankan seluruh container di background
+docker compose up -d --build
 
-{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "password": "secret123"
-}
+# 3. Pantau log aplikasi
+docker compose logs -f app
 ```
+Aplikasi dapat diakses di: **http://localhost:8080**
 
-**Response:**
-```json
-{
-  "token": "eyJhbGciOiJIUzUxMiJ9..."
-}
-```
+### Opsi 2: Menjalankan Secara Lokal (Local Development)
+1. **Pastikan PostgreSQL dan Redis lokal aktif**:
+   ```bash
+   brew services start postgresql@16
+   brew services start redis
+   ```
+2. **Jalankan aplikasi dengan Maven Wrapper**:
+   ```bash
+   ./mvnw spring-boot:run
+   ```
 
-#### Login
-```http
-POST /api/v1/auth/login
-Content-Type: application/json
+### Opsi 3: Build & Jalankan Executable Production JAR
+```bash
+# 1. Build JAR produksi (skip tests untuk kecepatan packaging)
+./mvnw clean package -DskipTests
 
-{
-  "email": "john@example.com",
-  "password": "secret123"
-}
-```
-
-**Response:**
-```json
-{
-  "token": "eyJhbGciOiJIUzUxMiJ9..."
-}
+# 2. Jalankan dengan profile production
+export SPRING_PROFILES_ACTIVE=prod
+export DB_PASSWORD=your_postgres_password
+java -jar target/baseapp-0.0.1-SNAPSHOT.jar
 ```
 
 ---
 
-### Demo (Protected — wajib token)
+## 🧪 Menjalankan Automated Test Suite
 
-#### Hello (semua user yang login)
-```http
-GET /api/v1/demo/hello
-Authorization: Bearer <token>
+Aplikasi dilengkapi dengan **26 skenario pengujian otomatis**:
+```bash
+# Jalankan seluruh unit test dan integration test
+./mvnw test
 ```
 
-**Response:**
-```json
-{
-  "message": "Hello, John Doe!",
-  "email": "john@example.com",
-  "role": "USER",
-  "authorities": "[ROLE_USER]"
-}
-```
-
-#### Admin Only (khusus role ADMIN)
-```http
-GET /api/v1/demo/admin
-Authorization: Bearer <token>
-```
-
-**Response (jika ADMIN):** `200 OK`
-**Response (jika USER biasa):** `403 Forbidden`
+Rincian cakupan test:
+- `JwtServiceTest`: 7 skenario (RS256 sign, claims extraction, validity check, expired token, mismatched signature detection).
+- `TokenBlacklistServiceTest`: 5 skenario (Redis TTL caching, negative duration guard, O(1) blacklist check).
+- `RefreshTokenServiceTest`: 7 skenario (UUID generation, active validation, revoked rejection, expiration deletion).
+- `AuthenticationIntegrationTest`: 6 skenario alur lengkap (*Register ➔ Protected ➔ Login ➔ Refresh ➔ Logout ➔ Blacklist Rejection*).
 
 ---
 
-## 🧩 Cara Kerja Komponen Utama
+## 📮 Panduan Pengujian Manual & Postman
 
-### `JwtAuthenticationFilter`
-Filter yang dieksekusi pada **setiap HTTP request** sebelum masuk ke controller. Alurnya:
-1. Ambil header `Authorization: Bearer <token>`
-2. Ekstrak username (email) dari token via `JwtService`
-3. Load data user dari database
-4. Validasi token (signature & expired)
-5. Set `Authentication` ke `SecurityContextHolder` jika valid
-
-### `JwtService`
-Utility service untuk mengelola siklus hidup JWT:
-- `generateToken(userDetails)` — buat token baru saat login/register
-- `isTokenValid(token, userDetails)` — cek validitas token
-- `extractUsername(token)` — ambil email dari payload token
-
-### `SecurityConfiguration`
-Mendefinisikan aturan akses route:
-```java
-.requestMatchers("/api/v1/auth/**").permitAll()         // Publik
-.requestMatchers("/api/v1/demo/admin").hasRole("ADMIN") // Khusus ADMIN
-.anyRequest().authenticated()                           // Lainnya wajib login
-```
+1. **Pengujian Manual via cURL**: Panduan langkah demi langkah beserta contoh request dan response lengkap tersedia di [MANUAL_TESTING.md](file:///MANUAL_TESTING.md).
+2. **Postman Collection**: Import berkas [postman_collection.json](file:///postman_collection.json) ke Postman. Koleksi ini dilengkapi fitur **Auto-Save Token** pada request *Register*, *Login*, dan *Refresh Token* sehingga Anda tidak perlu menyalin token secara manual saat pengujian!
+3. **Swagger UI**: Buka browser di [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html) lalu klik tombol hijau **Authorize 🔓** untuk memasukkan token.
 
 ---
 
-## 🔒 Aturan Akses
-
-| Endpoint | Akses |
-|---|---|
-| `POST /api/v1/auth/register` | Public |
-| `POST /api/v1/auth/login` | Public |
-| `GET /api/v1/demo/hello` | Semua user yang login |
-| `GET /api/v1/demo/admin` | Hanya ADMIN |
-| Semua route lainnya | Wajib login |
-
----
-
-## 🛡️ Catatan Keamanan untuk Production
-
-- [ ] Ganti `ddl-auto: update` → `validate` dan gunakan **Flyway** untuk migrasi
-- [ ] Set `show-sql: false`
-- [ ] Simpan `JWT_SECRET` di environment variable, bukan hardcode
-- [ ] Gunakan HTTPS
-- [ ] Pertimbangkan implementasi **Refresh Token** untuk token yang expired
-- [ ] Tambahkan **Rate Limiting** pada endpoint `/login` untuk mencegah brute force
+## 📜 Lisensi
+Proyek ini dilisensikan di bawah lisensi MIT. Bebas digunakan sebagai boilerplate dasar untuk aplikasi komersial maupun pribadi.
